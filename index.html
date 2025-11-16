@@ -1,22 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>My Note for You ❤️</title>
 
-  <!-- Google Fonts for elegant, soft fonts -->
+  <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Dancing+Script&family=Georgia&display=swap" rel="stylesheet">
 
   <style>
     /* Reset */
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
     html, body {
       height: 100%;
       width: 100%;
-      /* Allow scrolling on small screens so text isn't cropped */
-      overflow: auto;
+      overflow: hidden; /* no visible page scrollbars (we use internal scrolling) */
       background: #000;
       font-family: 'Georgia', serif;
       display: flex;
@@ -26,23 +25,27 @@
       -moz-osx-font-smoothing: grayscale;
     }
 
-    /* Video background */
+    /* Video background: cover whole viewport, centered, on z layer behind content */
     .bg-video {
       position: fixed;
       inset: 0; /* top:0; right:0; bottom:0; left:0; */
-      width: 100vw;
-      height: 100vh;
-      object-fit: cover; /* covers viewport, may crop but keeps aspect */
-      z-index: -1;
-      opacity: 0.82; /* dim for text visibility */
-      pointer-events: none; /* don't intercept touches */
-      will-change: transform, opacity;
-      /* ensure smooth scaling on mobile */
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center center;
+      z-index: 0; /* place behind content but above background */
+      opacity: 0.82;
+      pointer-events: none;
       transform-origin: center center;
-      transition: transform 6s ease; /* gentle zoom effect */
+      transition: transform 6s ease;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      will-change: transform, opacity;
+      visibility: hidden; /* start hidden until we confirm it can play or load */
+      background: #000;
     }
 
-    /* gentle slow zoom-in effect so background is not static */
+    /* gentle slow zoom-in effect */
     .bg-video.zoom-in {
       transform: scale(1.06);
     }
@@ -50,7 +53,7 @@
       transform: scale(1.0);
     }
 
-    /* Text content wrapper */
+    /* Content wrapper: internal scroll allowed but scrollbar hidden */
     .content {
       position: relative;
       text-align: center;
@@ -58,19 +61,26 @@
       width: 92%;
       max-width: 580px;
       margin: 20px;
-      background: rgba(0,0,0,0.18); /* subtle backdrop for readability */
+      background: rgba(0,0,0,0.18);
       border-radius: 12px;
-      z-index: 2;
+      z-index: 2; /* above video */
       backdrop-filter: blur(4px);
       box-shadow: 0 8px 30px rgba(0,0,0,0.5);
-      max-height: 78vh; /* allow internal scroll on small devices */
+
+      /* make content scrollable internally so long text is accessible without page scrollbar */
+      max-height: calc(100vh - 48px);
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
 
-    /* Text message with fade-in */
+    /* Hide visible scrollbars while keeping scrolling possible (WebKit + Firefox + Edge) */
+    .content::-webkit-scrollbar { width: 0; height: 0; display: none; }
+    .content { scrollbar-width: none; -ms-overflow-style: none; } /* Firefox, IE */
+
+    /* Text message fade-in */
     .message {
       opacity: 0;
-      animation: fadeIn 1.6s forwards 0.6s; /* faster fade so content appears quickly */
+      animation: fadeIn 1.6s forwards 0.6s;
     }
 
     .message h1 {
@@ -95,11 +105,11 @@
       100% { opacity: 1; transform: translateY(0); }
     }
 
-    /* Tap-to-play / Read-message overlay */
+    /* "Read message" overlay (soft) */
     .play-overlay {
       position: fixed;
       inset: 0;
-      display: none; /* shown only when autoplay blocked */
+      display: none;
       justify-content: center;
       align-items: center;
       background: linear-gradient(rgba(0,0,0,0.42), rgba(0,0,0,0.42));
@@ -125,21 +135,13 @@
       align-items: center;
       gap: 10px;
       user-select: none;
-      -webkit-user-select: none;
     }
-
-    /* Soft entrance + gentle pulse so it's subtle */
-    .play-button {
-      animation: buttonIn 540ms cubic-bezier(.2,.9,.2,1);
-    }
+    .play-button { animation: buttonIn 540ms cubic-bezier(.2,.9,.2,1); }
     @keyframes buttonIn {
       from { opacity: 0; transform: translateY(10px) scale(.98) }
-      to { opacity: 1; transform: translateY(0) scale(1) }
+      to   { opacity: 1; transform: translateY(0) scale(1) }
     }
-    .play-button .label {
-      animation: pulse 2.2s ease-in-out infinite;
-      transform-origin: center;
-    }
+    .play-button .label { animation: pulse 2.2s ease-in-out infinite; transform-origin:center; }
     @keyframes pulse {
       0% { transform: scale(1) }
       50% { transform: scale(1.03) }
@@ -153,7 +155,6 @@
       .content { padding: 16px; margin: 14px; max-width: 94%; }
       .bg-video { transition: transform 8s linear; }
     }
-
     @media (max-width: 360px) {
       .message h1 { font-size: 1.4rem; }
       .message p { font-size: 0.95rem; line-height: 1.5; }
@@ -162,13 +163,15 @@
 </head>
 <body>
 
-  <!-- Video background (muted so browsers allow autoplay). preload added -->
+  <!-- Video background: include both WebM and MP4 fallback; keep muted and playsinline -->
   <video id="bgVideo" class="bg-video zoom-out" autoplay muted loop playsinline preload="auto" poster="">
-    <source src="video_bg.mp4" type="video/mp4">
-    <!-- Consider adding additional sources (webm) for better compatibility -->
+    <!-- Add a WebM source (smaller/better compatibility on some browsers) -->
+    <source src="video_bg.webm" type="video/webm" />
+    <source src="video_bg.mp4" type="video/mp4" />
+    <!-- If neither loads, the video remains hidden and we keep a dark background -->
   </video>
 
-  <!-- Text content -->
+  <!-- Content -->
   <div class="content" id="content">
     <div class="message">
       <h1>Hey my love ❤️</h1>
@@ -183,13 +186,13 @@ I love you. 💓
     </div>
   </div>
 
-  <!-- Background music: add loop; don't rely solely on autoplay (browsers may block it) -->
+  <!-- Background music: loop only (no autoplay attribute so we don't rely on it) -->
   <audio id="bgMusic" loop>
-    <source src="song_bg.mp3" type="audio/mpeg">
+    <source src="song_bg.mp3" type="audio/mpeg" />
     Your browser does not support the audio element.
   </audio>
 
-  <!-- "Read message" overlay (shown if autoplay blocked) -->
+  <!-- Read message overlay -->
   <div id="playOverlay" class="play-overlay" aria-hidden="true">
     <button id="playButton" class="play-button" aria-label="Read message">
       <span class="label">Read message</span>
@@ -197,97 +200,114 @@ I love you. 💓
   </div>
 
   <script>
-    // Elements
     const music = document.getElementById('bgMusic');
     const video = document.getElementById('bgVideo');
     const overlay = document.getElementById('playOverlay');
     const btn = document.getElementById('playButton');
 
-    // Try to autoplay music and video on load. muted video should usually autoplay;
-    // audio usually blocked — show overlay that says "Read message" if blocked.
-    window.addEventListener('load', async () => {
-      // gentle zoom animation toggling for the background video
-      try {
-        setTimeout(() => video.classList.replace('zoom-out','zoom-in'), 1000);
-        setInterval(() => video.classList.toggle('zoom-in'), 7000);
-      } catch (e) { /* ignore if class manipulation fails */ }
+    // Helper: show overlay (Read message)
+    function showOverlay() {
+      overlay.classList.add('show');
+      overlay.setAttribute('aria-hidden','false');
+    }
+    function hideOverlay() {
+      overlay.classList.remove('show');
+      overlay.setAttribute('aria-hidden','true');
+    }
 
-      // Attempt to play the video (muted) and music (unmuted)
+    // When the page loads, try to play the muted video (usually allowed) and attempt audio.
+    window.addEventListener('load', async () => {
+      // start gentle zoom toggle for video (visual polish)
       try {
-        await video.play(); // should succeed if muted & playsinline
-        console.log('Background video played or is allowed to autoplay.');
+        video.classList.replace('zoom-out','zoom-in');
+        setInterval(() => video.classList.toggle('zoom-in'), 7000);
+      } catch(e) { /* ignore */ }
+
+      // Try to play the muted video. If it canplay, make it visible.
+      video.addEventListener('canplay', () => {
+        video.style.visibility = 'visible';
+        console.log('Video canplay: made visible.');
+      }, { once: true });
+
+      video.addEventListener('canplaythrough', () => {
+        video.style.visibility = 'visible';
+      }, { once: true });
+
+      video.addEventListener('play', () => {
+        video.style.visibility = 'visible';
+      });
+
+      video.addEventListener('error', (e) => {
+        console.error('Background video load/play error:', e, video.currentSrc);
+        // keep background dark if video won't load
+      });
+
+      // Try playing the muted video explicitly (most browsers allow muted autoplay)
+      try {
+        await video.play();
+        video.style.visibility = 'visible';
+        console.log('Background video played/allowed.');
       } catch (err) {
-        console.warn('Background video autoplay prevented or error:', err);
+        console.warn('Background video autoplay blocked or play failed:', err);
+        // video may still play after user gesture; keep visibility toggles in listeners
       }
 
+      // Try to autoplay audio — usually blocked; if blocked, show overlay.
       try {
         await music.play();
-        // success: audio autoplay allowed — ensure overlay hidden
-        overlay.classList.remove('show');
-        overlay.setAttribute('aria-hidden', 'true');
-        console.log('Music autoplayed successfully.');
+        console.log('Audio autoplayed.');
+        hideOverlay();
       } catch (err) {
-        // autoplay prevented — show the "Read message" overlay to get a user gesture
-        console.warn('Music autoplay prevented, showing "Read message" overlay.', err);
-        overlay.classList.add('show');
-        overlay.setAttribute('aria-hidden', 'false');
+        console.warn('Audio autoplay blocked; showing "Read message" overlay.', err);
+        showOverlay();
       }
     });
 
-    // When the user taps the "Read message" button, start music and (re)play video and hide overlay
+    // On overlay button click: start music (and try to ensure video plays)
     btn.addEventListener('click', async () => {
       try {
         await music.play();
-        if (video.paused) {
-          try { await video.play(); } catch(e) { /* ignore */ }
-        }
-        overlay.classList.remove('show');
-        overlay.setAttribute('aria-hidden', 'true');
-        console.log('Music started after user interaction.');
+        console.log('Music started after user click.');
       } catch (err) {
-        console.error('Play failed even after user interaction:', err);
+        console.error('Music failed to play after click:', err);
       }
+      // ensure video plays too (if it's paused on some browsers)
+      try { await video.play(); } catch(e) {}
+      hideOverlay();
     });
 
-    // Also listen for a first global user gesture to attempt playback (helpful on mobile)
-    function globalPlayHandler() {
+    // Global first-gesture fallback (tap anywhere) to start audio/video if overlay shown
+    function globalPlay() {
       if (overlay.classList.contains('show')) {
         music.play().then(() => {
           try { video.play(); } catch(e) {}
-          overlay.classList.remove('show');
-          overlay.setAttribute('aria-hidden', 'true');
+          hideOverlay();
         }).catch(()=>{ /* still blocked */ });
       } else {
-        // try to ensure video is playing if overlay isn't visible
-        if (video.paused) {
-          video.play().catch(()=>{/* ignore */});
-        }
+        if (video.paused) video.play().catch(()=>{/* ignore */});
       }
-      // remove listener after first gesture
-      document.removeEventListener('click', globalPlayHandler);
-      document.removeEventListener('touchstart', globalPlayHandler);
+      document.removeEventListener('click', globalPlay);
+      document.removeEventListener('touchstart', globalPlay);
     }
-    document.addEventListener('click', globalPlayHandler);
-    document.addEventListener('touchstart', globalPlayHandler);
+    document.addEventListener('click', globalPlay);
+    document.addEventListener('touchstart', globalPlay);
 
-    // Helpful debugging: log if media sources fail to load
+    // Debugging listeners: log load errors and current src (useful if files missing or misnamed)
     music.addEventListener('error', (e) => {
       console.error('Audio loading error:', e, music.currentSrc);
+      // if audio fails, overlay can still be hidden to read the message
     });
-    video.addEventListener('error', (e) => {
-      console.error('Video loading error:', e, video.currentSrc);
+    video.addEventListener('stalled', () => {
+      console.warn('Video stalled, check network or file format.');
     });
 
-    // Accessibility: allow keyboard to activate button
+    // Accessibility: allow Enter/Space to activate button
     btn.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         btn.click();
       }
     });
-
-    // If content is cropped on very small viewports, let the content scroll internally (we set max-height + overflow-y)
-    // No further JS needed — CSS handles responsive font sizing and internal scrolling.
 
   </script>
 
