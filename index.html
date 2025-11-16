@@ -75,21 +75,40 @@
       100% { opacity: 1; transform: translateY(0); }
     }
 
+    /* Tap-to-play overlay */
+    .play-overlay {
+      position: fixed;
+      inset: 0;
+      display: none; /* shown only when autoplay blocked */
+      justify-content: center;
+      align-items: center;
+      background: rgba(0,0,0,0.45);
+      z-index: 10;
+    }
+    .play-button {
+      background: rgba(255,255,255,0.95);
+      color: #000;
+      padding: 14px 22px;
+      border-radius: 999px;
+      font-size: 1rem;
+      cursor: pointer;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+    }
   </style>
 </head>
 <body>
 
-  <!-- Video background -->
-<video class="bg-video" autoplay muted loop playsinline>
-  <source src="video_bg.mp4" type="video/mp4">
-</video>
+  <!-- Video background (muted so browsers allow autoplay) -->
+  <video class="bg-video" autoplay muted loop playsinline>
+    <source src="video_bg.mp4" type="video/mp4">
+  </video>
 
   <!-- Text content -->
   <div class="content">
     <div class="message">
       <h1>Hey my love ❤️</h1>
       <p>
-        After I broke up with lalit, I was in pieces. I was shattered and I literally don't remember much. It's like my brain just washed the tantrums, the pain. I don't visually remember it, but I still know how it felt. How painful it was, I lost hope, I felt and I did lose myself. There is a lot of differences in me now. I do not know if all of them are healthy or not. But there was you. I remember, you were there. You held when I was break down. You held all the pieces of me in your arms, you told me I'm alright. You became my hope, you became my reason to live, in this cruel, pathetic world. You became the reason of my existence. I was scared, I was feeling lost when WE became a thing. I was scared what if I break down even worse. I had restless nights. No sleep in my eyes, I was still hurting. But you held me, you didn't say much but you held me. No matter how much I resisted, you held me. You always did. 
+      After I broke up with lalit, I was in pieces. I was shattered and I literally don't remember much. It's like my brain just washed the tantrums, the pain. I don't visually remember it, but I still know how it felt. How painful it was, I lost hope, I felt and I did lose myself. There is a lot of differences in me now. I do not know if all of them are healthy or not. But there was you. I remember, you were there. You held when I was break down. You held all the pieces of me in your arms, you told me I'm alright. You became my hope, you became my reason to live, in this cruel, pathetic world. You became the reason of my existence. I was scared, I was feeling lost when WE became a thing. I was scared what if I break down even worse. I had restless nights. No sleep in my eyes, I was still hurting. But you held me, you didn't say much but you held me. No matter how much I resisted, you held me. You always did. 
 And I cannot describe how grateful  I am, to have you. You know, when I'm helpless and I'm really tired, when I cannot fight back. I cry, I cry like someone tore my heart out. And cry for help, I literally cry for someone to help me out of this. It was you always, I cried for you to help me. Although I knew, you're really far away rn, you can't help me. But it was always you, it was meat to be YOU. 
 You, made me ME, again... 
 Better than I ever was, I feel loved, I feel safe, I feel seen, I feel I found ME. And I'm grateful. 
@@ -99,21 +118,60 @@ I love you. 💓
     </div>
   </div>
 
-  <!-- Background music -->
-  <audio id="bgMusic" autoplay>
+  <!-- Background music: add loop; don't rely solely on autoplay (browsers may block it) -->
+  <audio id="bgMusic" loop>
     <source src="song_bg.mp3" type="audio/mpeg">
     Your browser does not support the audio element.
   </audio>
 
+  <!-- Simple overlay to request a user tap when autoplay is blocked -->
+  <div id="playOverlay" class="play-overlay" aria-hidden="true">
+    <button id="playButton" class="play-button">Tap to play music</button>
+  </div>
+
   <script>
-    // Play music automatically when page loads
-    window.addEventListener('load', () => {
-      const music = document.getElementById('bgMusic');
-      music.play().catch(() => {
-        // some browsers block autoplay with sound; user may need to tap to allow
-        console.log("Autoplay blocked. User interaction needed to play sound.");
-      });
+    const music = document.getElementById('bgMusic');
+    const overlay = document.getElementById('playOverlay');
+    const btn = document.getElementById('playButton');
+
+    // Try to play immediately on load. Many browsers allow muted video autoplay,
+    // but unmuted audio often requires a user gesture.
+    window.addEventListener('load', async () => {
+      try {
+        await music.play();
+        // playing succeeded - hide overlay if visible
+        overlay.style.display = 'none';
+        console.log('Music autoplayed successfully.');
+      } catch (err) {
+        // autoplay prevented — show overlay to get a user interaction
+        console.warn('Autoplay prevented, showing tap-to-play overlay.', err);
+        overlay.style.display = 'flex';
+        overlay.setAttribute('aria-hidden', 'false');
+      }
     });
+
+    // When the user taps the button/overlay, try to play the music and hide the overlay
+    btn.addEventListener('click', async () => {
+      try {
+        await music.play();
+        overlay.style.display = 'none';
+        overlay.setAttribute('aria-hidden', 'true');
+        console.log('Music started after user interaction.');
+      } catch (err) {
+        console.error('Play failed even after user interaction:', err);
+      }
+    });
+
+    // Optional: close overlay on any user interaction (touch/click) and attempt to play
+    ['click','touchstart'].forEach(evt =>
+      document.addEventListener(evt, async function onceHandler() {
+        if (overlay.style.display === 'flex') {
+          try { await music.play(); overlay.style.display = 'none'; }
+          catch(e){ /* ignore if still failing */ }
+        }
+        document.removeEventListener(evt, onceHandler);
+      }, { once: true })
+    );
   </script>
 
 </body>
