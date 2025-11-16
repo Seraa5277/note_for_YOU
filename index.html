@@ -15,100 +15,165 @@
     html, body {
       height: 100%;
       width: 100%;
-      overflow: hidden;
+      /* Allow scrolling on small screens so text isn't cropped */
+      overflow: auto;
       background: #000;
       font-family: 'Georgia', serif;
       display: flex;
       justify-content: center;
       align-items: center;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
     /* Video background */
     .bg-video {
       position: fixed;
-      top: 50%;
-      left: 50%;
-      width: auto;
-      height: 100%;
-      min-width: 100%;
-      min-height: 100%;
-      transform: translate(-50%, -50%);
-      object-fit: cover;
+      inset: 0; /* top:0; right:0; bottom:0; left:0; */
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover; /* covers viewport, may crop but keeps aspect */
       z-index: -1;
-      opacity: 0.8; /* dim for text visibility */
+      opacity: 0.82; /* dim for text visibility */
+      pointer-events: none; /* don't intercept touches */
+      will-change: transform, opacity;
+      /* ensure smooth scaling on mobile */
+      transform-origin: center center;
+      transition: transform 6s ease; /* gentle zoom effect */
+    }
+
+    /* gentle slow zoom-in effect so background is not static */
+    .bg-video.zoom-in {
+      transform: scale(1.06);
+    }
+    .bg-video.zoom-out {
+      transform: scale(1.0);
     }
 
     /* Text content wrapper */
     .content {
       position: relative;
       text-align: center;
-      padding: 20px;
-      width: 90%;
-      max-width: 500px;
-      margin: auto;
+      padding: 22px;
+      width: 92%;
+      max-width: 580px;
+      margin: 20px;
+      background: rgba(0,0,0,0.18); /* subtle backdrop for readability */
+      border-radius: 12px;
+      z-index: 2;
+      backdrop-filter: blur(4px);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+      max-height: 78vh; /* allow internal scroll on small devices */
+      overflow-y: auto;
     }
 
     /* Text message with fade-in */
     .message {
       opacity: 0;
-      animation: fadeIn 3s forwards 0.8s; /* fade in over 3s, start after 0.8s */
+      animation: fadeIn 1.6s forwards 0.6s; /* faster fade so content appears quickly */
     }
 
     .message h1 {
-      font-size: 1.8rem; /* soft, readable headline */
+      font-size: 1.9rem;
       font-family: 'Dancing Script', cursive;
-      color: #ffe6e6; /* soft pastel */
-      margin-bottom: 10px;
-      text-shadow: 0 0 6px rgba(0,0,0,0.5);
+      color: #ffe6e6;
+      margin-bottom: 12px;
+      text-shadow: 0 0 6px rgba(0,0,0,0.6);
     }
 
     .message p {
-      font-size: 1rem; /* readable paragraph */
-      line-height: 1.6;
+      font-size: 1rem;
+      line-height: 1.65;
       font-family: 'Georgia', serif;
-      color: #fff0f5; /* soft pink tone */
-      text-shadow: 0 0 5px rgba(0,0,0,0.4);
+      color: #fff0f5;
+      text-shadow: 0 0 5px rgba(0,0,0,0.45);
+      white-space: pre-wrap;
     }
 
     @keyframes fadeIn {
-      0% { opacity: 0; transform: translateY(15px); }
+      0% { opacity: 0; transform: translateY(12px); }
       100% { opacity: 1; transform: translateY(0); }
     }
 
-    /* Tap-to-play overlay */
+    /* Tap-to-play / Read-message overlay */
     .play-overlay {
       position: fixed;
       inset: 0;
       display: none; /* shown only when autoplay blocked */
       justify-content: center;
       align-items: center;
-      background: rgba(0,0,0,0.45);
-      z-index: 10;
+      background: linear-gradient(rgba(0,0,0,0.42), rgba(0,0,0,0.42));
+      z-index: 20;
+      pointer-events: auto;
+      padding: 20px;
     }
+    .play-overlay.show { display: flex; animation: overlayFade 360ms ease; }
+    @keyframes overlayFade { from { opacity: 0 } to { opacity: 1 } }
+
     .play-button {
       background: rgba(255,255,255,0.95);
       color: #000;
-      padding: 14px 22px;
+      padding: 14px 26px;
       border-radius: 999px;
-      font-size: 1rem;
+      font-size: 1.05rem;
       cursor: pointer;
-      box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+      box-shadow: 0 6px 22px rgba(0,0,0,0.35);
+      border: none;
+      outline: none;
+      transform-origin: center;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Soft entrance + gentle pulse so it's subtle */
+    .play-button {
+      animation: buttonIn 540ms cubic-bezier(.2,.9,.2,1);
+    }
+    @keyframes buttonIn {
+      from { opacity: 0; transform: translateY(10px) scale(.98) }
+      to { opacity: 1; transform: translateY(0) scale(1) }
+    }
+    .play-button .label {
+      animation: pulse 2.2s ease-in-out infinite;
+      transform-origin: center;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1) }
+      50% { transform: scale(1.03) }
+      100% { transform: scale(1) }
+    }
+
+    /* Responsive tweaks */
+    @media (max-width: 520px) {
+      .message h1 { font-size: 1.6rem; }
+      .message p { font-size: 0.98rem; }
+      .content { padding: 16px; margin: 14px; max-width: 94%; }
+      .bg-video { transition: transform 8s linear; }
+    }
+
+    @media (max-width: 360px) {
+      .message h1 { font-size: 1.4rem; }
+      .message p { font-size: 0.95rem; line-height: 1.5; }
     }
   </style>
 </head>
 <body>
 
-  <!-- Video background (muted so browsers allow autoplay) -->
-  <video class="bg-video" autoplay muted loop playsinline>
+  <!-- Video background (muted so browsers allow autoplay). preload added -->
+  <video id="bgVideo" class="bg-video zoom-out" autoplay muted loop playsinline preload="auto" poster="">
     <source src="video_bg.mp4" type="video/mp4">
+    <!-- Consider adding additional sources (webm) for better compatibility -->
   </video>
 
   <!-- Text content -->
-  <div class="content">
+  <div class="content" id="content">
     <div class="message">
       <h1>Hey my love ❤️</h1>
       <p>
-      After I broke up with lalit, I was in pieces. I was shattered and I literally don't remember much. It's like my brain just washed the tantrums, the pain. I don't visually remember it, but I still know how it felt. How painful it was, I lost hope, I felt and I did lose myself. There is a lot of differences in me now. I do not know if all of them are healthy or not. But there was you. I remember, you were there. You held when I was break down. You held all the pieces of me in your arms, you told me I'm alright. You became my hope, you became my reason to live, in this cruel, pathetic world. You became the reason of my existence. I was scared, I was feeling lost when WE became a thing. I was scared what if I break down even worse. I had restless nights. No sleep in my eyes, I was still hurting. But you held me, you didn't say much but you held me. No matter how much I resisted, you held me. You always did. 
+       After I broke up with lalit, I was in pieces. I was shattered and I literally don't remember much. It's like my brain just washed the tantrums, the pain. I don't visually remember it, but I still know how it felt. How painful it was, I lost hope, I felt and I did lose myself. There is a lot of differences in me now. I do not know if all of them are healthy or not. But there was you. I remember, you were there. You held when I was break down. You held all the pieces of me in your arms, you told me I'm alright. You became my hope, you became my reason to live, in this cruel, pathetic world. You became the reason of my existence. I was scared, I was feeling lost when WE became a thing. I was scared what if I break down even worse. I had restless nights. No sleep in my eyes, I was still hurting. But you held me, you didn't say much but you held me. No matter how much I resisted, you held me. You always did. 
 And I cannot describe how grateful  I am, to have you. You know, when I'm helpless and I'm really tired, when I cannot fight back. I cry, I cry like someone tore my heart out. And cry for help, I literally cry for someone to help me out of this. It was you always, I cried for you to help me. Although I knew, you're really far away rn, you can't help me. But it was always you, it was meat to be YOU. 
 You, made me ME, again... 
 Better than I ever was, I feel loved, I feel safe, I feel seen, I feel I found ME. And I'm grateful. 
@@ -124,37 +189,59 @@ I love you. 💓
     Your browser does not support the audio element.
   </audio>
 
-  <!-- Simple overlay to request a user tap when autoplay is blocked -->
+  <!-- "Read message" overlay (shown if autoplay blocked) -->
   <div id="playOverlay" class="play-overlay" aria-hidden="true">
-    <button id="playButton" class="play-button">Tap to play music</button>
+    <button id="playButton" class="play-button" aria-label="Read message">
+      <span class="label">Read message</span>
+    </button>
   </div>
 
   <script>
+    // Elements
     const music = document.getElementById('bgMusic');
+    const video = document.getElementById('bgVideo');
     const overlay = document.getElementById('playOverlay');
     const btn = document.getElementById('playButton');
 
-    // Try to play immediately on load. Many browsers allow muted video autoplay,
-    // but unmuted audio often requires a user gesture.
+    // Try to autoplay music and video on load. muted video should usually autoplay;
+    // audio usually blocked — show overlay that says "Read message" if blocked.
     window.addEventListener('load', async () => {
+      // gentle zoom animation toggling for the background video
+      try {
+        setTimeout(() => video.classList.replace('zoom-out','zoom-in'), 1000);
+        setInterval(() => video.classList.toggle('zoom-in'), 7000);
+      } catch (e) { /* ignore if class manipulation fails */ }
+
+      // Attempt to play the video (muted) and music (unmuted)
+      try {
+        await video.play(); // should succeed if muted & playsinline
+        console.log('Background video played or is allowed to autoplay.');
+      } catch (err) {
+        console.warn('Background video autoplay prevented or error:', err);
+      }
+
       try {
         await music.play();
-        // playing succeeded - hide overlay if visible
-        overlay.style.display = 'none';
+        // success: audio autoplay allowed — ensure overlay hidden
+        overlay.classList.remove('show');
+        overlay.setAttribute('aria-hidden', 'true');
         console.log('Music autoplayed successfully.');
       } catch (err) {
-        // autoplay prevented — show overlay to get a user interaction
-        console.warn('Autoplay prevented, showing tap-to-play overlay.', err);
-        overlay.style.display = 'flex';
+        // autoplay prevented — show the "Read message" overlay to get a user gesture
+        console.warn('Music autoplay prevented, showing "Read message" overlay.', err);
+        overlay.classList.add('show');
         overlay.setAttribute('aria-hidden', 'false');
       }
     });
 
-    // When the user taps the button/overlay, try to play the music and hide the overlay
+    // When the user taps the "Read message" button, start music and (re)play video and hide overlay
     btn.addEventListener('click', async () => {
       try {
         await music.play();
-        overlay.style.display = 'none';
+        if (video.paused) {
+          try { await video.play(); } catch(e) { /* ignore */ }
+        }
+        overlay.classList.remove('show');
         overlay.setAttribute('aria-hidden', 'true');
         console.log('Music started after user interaction.');
       } catch (err) {
@@ -162,16 +249,46 @@ I love you. 💓
       }
     });
 
-    // Optional: close overlay on any user interaction (touch/click) and attempt to play
-    ['click','touchstart'].forEach(evt =>
-      document.addEventListener(evt, async function onceHandler() {
-        if (overlay.style.display === 'flex') {
-          try { await music.play(); overlay.style.display = 'none'; }
-          catch(e){ /* ignore if still failing */ }
+    // Also listen for a first global user gesture to attempt playback (helpful on mobile)
+    function globalPlayHandler() {
+      if (overlay.classList.contains('show')) {
+        music.play().then(() => {
+          try { video.play(); } catch(e) {}
+          overlay.classList.remove('show');
+          overlay.setAttribute('aria-hidden', 'true');
+        }).catch(()=>{ /* still blocked */ });
+      } else {
+        // try to ensure video is playing if overlay isn't visible
+        if (video.paused) {
+          video.play().catch(()=>{/* ignore */});
         }
-        document.removeEventListener(evt, onceHandler);
-      }, { once: true })
-    );
+      }
+      // remove listener after first gesture
+      document.removeEventListener('click', globalPlayHandler);
+      document.removeEventListener('touchstart', globalPlayHandler);
+    }
+    document.addEventListener('click', globalPlayHandler);
+    document.addEventListener('touchstart', globalPlayHandler);
+
+    // Helpful debugging: log if media sources fail to load
+    music.addEventListener('error', (e) => {
+      console.error('Audio loading error:', e, music.currentSrc);
+    });
+    video.addEventListener('error', (e) => {
+      console.error('Video loading error:', e, video.currentSrc);
+    });
+
+    // Accessibility: allow keyboard to activate button
+    btn.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        btn.click();
+      }
+    });
+
+    // If content is cropped on very small viewports, let the content scroll internally (we set max-height + overflow-y)
+    // No further JS needed — CSS handles responsive font sizing and internal scrolling.
+
   </script>
 
 </body>
