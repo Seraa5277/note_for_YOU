@@ -25,7 +25,7 @@
       -moz-osx-font-smoothing: grayscale;
     }
 
-    /* Video background: cover whole viewport, centered, behind content */
+    /* Video background: very slow, subtle breathing zoom behind content */
     .bg-video {
       position: fixed;
       inset: 0;
@@ -40,10 +40,8 @@
       will-change: transform, opacity;
       visibility: hidden; /* become visible once video can play */
       background: #000;
-      /* very slow, smooth zoom (alternate so it breathes gently) */
       animation: slowZoom 60s ease-in-out infinite alternate;
     }
-
     @keyframes slowZoom {
       0% { transform: scale(1); }
       100% { transform: scale(1.04); }
@@ -74,8 +72,6 @@
       transition: opacity 720ms cubic-bezier(.2,.9,.2,1), transform 720ms cubic-bezier(.2,.9,.2,1);
       pointer-events: none;
     }
-
-    /* when revealed, smoothly show content */
     .content.revealed {
       opacity: 1;
       transform: translateY(0);
@@ -86,7 +82,6 @@
     .content::-webkit-scrollbar { width: 0; height: 0; display: none; }
     .content { scrollbar-width: none; -ms-overflow-style: none; }
 
-    /* Text message fade-in internal */
     .message h1 {
       font-size: 1.9rem;
       font-family: 'Dancing Script', cursive;
@@ -114,7 +109,6 @@
       z-index: 20;
       padding: 20px;
 
-      /* start visible */
       opacity: 1;
       visibility: visible;
       transition: opacity 560ms ease, visibility 560ms ease;
@@ -173,18 +167,18 @@
     <div class="message">
       <h1>Hey my love ❤️</h1>
       <p>
- After I broke up with lalit, I was in pieces. I was shattered and I literally don't remember much. It's like my brain just washed the tantrums, the pain. I don't visually remember it, but I still know how it felt. How painful it was, I lost hope, I felt and I did lose myself. There is a lot of differences in me now. I do not know if all of them are healthy or not. But there was you. I remember, you were there. You held me when I was breaking down. You held all the pieces of me in your arms, you told me I'm alright. You became my hope, you became my reason to live, in this cruel, pathetic world. You became the reason of my existence. I was scared, I was still feeling lost when WE became a thing. I was scared what if I break down even worse. I had restless nights. No sleep in my eyes, thoughts crowding my mind, my body trembling with the thought of shattering down again, sometimes. I was still hurting. But you held me, you didn't say much but you held me. No matter how much I resisted, you held me. You always did. 
-And I cannot describe how grateful  I am, to have you. You know, when I'm helpless and I'm really tired, when I cannot fight back. I cry, I cry like someone tore my heart out. And cry for help, I literally cry for someone to help me out of this. It was you always, I cried for you to help me. Although I knew, you're really far away rn, you can't help me. But it was always you, it was meant to be YOU. 
+        After I broke up with lalit, I was in pieces. I was shattered and I literally don't remember much. It's like my brain just washed the tantrums, the pain. I don't visually remember it, but I st[...]
+And I cannot describe how grateful  I am, to have you. You know, when I'm helpless and I'm really tired, when I cannot fight back. I cry, I cry like someone tore my heart out. And cry for help, I lite[...]
 You, made me ME, again... 
 Better than I ever was, I feel loved, I feel safe, I feel seen, I feel I found ME. And I'm grateful. 
-Now, I know how it feels to be in love, I know the warmth of love. And you know, You're love is like a smooth moving carousel, with baby pink, soft yellow and sky blue lights.  
-I love you, sweetheart💓 
+Now, I know how it feels to be in love, I know the warmth of love now. 
+I love you. 💓 
       </p>
     </div>
   </div>
 
   <!-- Background music: do not autoplay—play on user gesture -->
-  <audio id="bgMusic" loop preload="auto">
+  <audio id="bgMusic" loop preload="auto" crossorigin="anonymous">
     <source src="song_bg.mp3" type="audio/mpeg" />
     Your browser does not support the audio element.
   </audio>
@@ -203,63 +197,103 @@ I love you, sweetheart💓
     const btn = document.getElementById('playButton');
     const music = document.getElementById('bgMusic');
 
-    // Make sure video becomes visible only when it can play
+    // Create (or reuse) an AudioContext so we can resume it on gesture (fixes Safari issues).
+    const AudioCtxConstructor = window.AudioContext || window.webkitAudioContext || null;
+    let audioCtx = null;
+    if (AudioCtxConstructor) {
+      try { audioCtx = new AudioCtxConstructor(); }
+      catch(e) { audioCtx = null; }
+    }
+
+    // Reveal/hide helpers
+    function showContent() {
+      content.classList.add('revealed');
+      content.setAttribute('aria-hidden', 'false');
+    }
+    function hideOverlay() {
+      overlay.classList.add('hidden');
+    }
+    function showOverlay() {
+      overlay.classList.remove('hidden');
+    }
+
+    // Ensure video becomes visible when it can play
     video.addEventListener('canplay', () => {
       video.style.visibility = 'visible';
-      console.log('Background video canplay — visible.');
     }, { once: true });
-
     video.addEventListener('error', (e) => {
       console.error('Video load/play error:', e, video.currentSrc);
-      // If it errors, keep background dark but still allow reading
     });
 
-    // Try to start muted video on load (muted autoplay is allowed on most browsers)
+    // Try to start muted video on load (muted autoplay usually allowed)
     window.addEventListener('load', async () => {
       try {
         await video.play();
         video.style.visibility = 'visible';
       } catch (err) {
-        console.warn('Muted video play may be blocked — will become playable after user gesture.', err);
+        // If video can't autoplay, it'll start after a gesture
+        console.warn('Muted video play may be blocked until user gesture.', err);
       }
 
-      // Always start with text hidden and overlay visible (per your request)
+      // Keep content hidden until user activates.
       content.classList.remove('revealed');
       content.setAttribute('aria-hidden', 'true');
-      overlay.classList.remove('hidden');
+      showOverlay();
     });
 
-    // When user clicks "Read note": reveal text, play music, fade out overlay
+    // Called on user gesture to resume AudioContext (if any) and play the media
     async function revealAndPlay() {
-      // reveal text with smooth transition
-      content.classList.add('revealed');
-      content.setAttribute('aria-hidden', 'false');
+      // resume AudioContext (Safari/iOS often requires this)
+      if (audioCtx && audioCtx.state === 'suspended') {
+        try {
+          await audioCtx.resume();
+          console.log('AudioContext resumed.');
+        } catch (e) {
+          console.warn('AudioContext resume failed:', e);
+        }
+      }
 
-      // hide overlay softly
-      overlay.classList.add('hidden');
+      // Unmute and set a default volume to make sure audio isn't muted
+      try {
+        music.muted = false;
+        // set a friendly default volume (0.0 - 1.0)
+        if (typeof music.volume === 'number') music.volume = 0.85;
+        // reset to start (optional)
+        try { music.currentTime = 0; } catch(e){ /* some browsers may throw if not ready */ }
+      } catch (e) {
+        console.warn('Failed to set audio properties before play:', e);
+      }
 
-      // attempt to play music; handle rejection gracefully
+      // reveal the text with smooth transition
+      showContent();
+      // hide the overlay softly
+      hideOverlay();
+
+      // Attempt to play the audio element and ensure the video is playing too
       try {
         await music.play();
         console.log('Music started after user gesture.');
       } catch (err) {
-        console.warn('Music play was blocked/failed after gesture:', err);
+        console.warn('Music play failed after user gesture:', err);
+        // If audio fails, return the overlay so user can try again
+        showOverlay();
+        return;
       }
 
-      // ensure video is playing (some browsers pause autoplayed video until gesture)
       try { await video.play(); } catch(e) { /* ignore */ }
 
-      // remove the global listeners after first activation
-      document.removeEventListener('click', globalPlayOnce);
-      document.removeEventListener('touchstart', globalPlayOnce);
+      // Remove the global initial-gesture listeners after first successful activation
+      document.removeEventListener('click', globalFirstGesture);
+      document.removeEventListener('touchstart', globalFirstGesture);
     }
 
+    // Button click handler
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       revealAndPlay();
     });
 
-    // Allow keyboard activation for accessibility
+    // Keyboard accessibility
     btn.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
@@ -267,19 +301,19 @@ I love you, sweetheart💓
       }
     });
 
-    // Also allow the first user gesture anywhere on the page to trigger the reveal (optional small convenience)
-    function globalPlayOnce() {
-      // if overlay still visible, treat first gesture as "Read note"
+    // Allow the very first user gesture anywhere to act as the activation (optional convenience)
+    function globalFirstGesture(e) {
       if (!overlay.classList.contains('hidden')) {
         revealAndPlay();
       }
     }
-    document.addEventListener('click', globalPlayOnce, { once: false });
-    document.addEventListener('touchstart', globalPlayOnce, { once: false });
+    document.addEventListener('click', globalFirstGesture, { passive: true });
+    document.addEventListener('touchstart', globalFirstGesture, { passive: true });
 
-    // debugging helpers
+    // Helpful debug logs if media fails to load
     music.addEventListener('error', (e) => {
       console.error('Audio loading error:', e, music.currentSrc);
+      // If audio can't be loaded, keep the overlay hidden so user can still read the note
     });
     video.addEventListener('stalled', () => {
       console.warn('Video stalled; check network or file format.');
